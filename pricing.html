@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BookPro Pricing</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;margin:0;padding:24px}
+.g{display:grid;gap:16px;max-width:900px;margin:auto;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.c{background:#1e293b;border-radius:20px;padding:20px}button{width:100%;padding:12px;border:0;border-radius:14px;background:#6366f1;color:#fff;font-size:16px}
+a{color:#22d3ee}</style></head><body>
+<h1 style="text-align:center">BookPro pricing</h1>
+<p style="text-align:center;opacity:.6">DRAFT prices (placeholders pending owner approval)</p>
+<div class="g">
+<div class="c"><h2>Free</h2><p>$0</p><p>Calendar, clock, quotes on one device.</p><a href="index.html">Open app</a></div>
+<div class="c"><h2>Starter</h2><p>$19/mo</p><p>Cloud sync, reminders, 1 location.</p><button onclick="buy('starter')">Choose Starter</button></div>
+<div class="c"><h2>Pro</h2><p>$49/mo</p><p>Multi-staff, deposits, branding.</p><button onclick="buy('pro')">Choose Pro</button></div>
+</div><p id="msg" style="text-align:center"></p>
+<script>
+async function buy(plan){const m=document.getElementById('msg');
+try{const r=await fetch('/.netlify/functions/checkout',{method:'POST',body:JSON.stringify({plan})});
+const d=await r.json();if(d.url)location.href=d.url;else m.textContent=d.message||d.error||'Unavailable';}
+catch{m.textContent='Checkout unavailable (functions need a Git-based Netlify deploy).';}}
+</script></body></html>

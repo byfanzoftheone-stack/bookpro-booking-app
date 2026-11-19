@@ -39,3 +39,6 @@ The app runs immediately with **local storage**. Each browser is its own company
 2. SQL editor → paste `supabase/schema.sql` → Run
 3. Wire URL + anon key when you are ready
 4. App stays on-device until then so you can demo the dots today.
+
+## Monetization and governance
+See `MONETIZATION.md`, `GOVERNANCE.md`, `LAUNCH.md`, `pricing.html`, `.env.example`. Run tests with `npm test`.

@@ -1,0 +1,1 @@
+{ "name": "bookpro-booking-app", "private": true, "scripts": { "test": "node --test test/checkout.test.js" } }
