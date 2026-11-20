@@ -14,3 +14,6 @@
 
 ## Verification
 `npm test` covers stub default, approval gate, plan validation and rate limiting.
+
+## Webhook and licenses
+Webhook events emit JSON audit lines (no plaintext keys, masked emails). Key delivery is manual and requires a named approver (`scripts/deliveries.mjs`). The ephemeral JSON store must not be used in production; see `MONETIZATION.md`. Default PIN 1234 remains a known gap.

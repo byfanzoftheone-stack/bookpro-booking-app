@@ -34,6 +34,9 @@ async function handle(event, env = process.env, fetchImpl = fetch) {
     mode: 'subscription',
     'line_items[0][price]': env[PLANS[plan]],
     'line_items[0][quantity]': '1',
+    // Read by the webhook to map price -> tier (server-side only; never client-supplied).
+    'metadata[price_id]': env[PLANS[plan]],
+    'subscription_data[metadata][price_id]': env[PLANS[plan]],
     success_url: env.SITE_URL + '/pricing.html?paid=1',
     cancel_url: env.SITE_URL + '/pricing.html?canceled=1'
   });

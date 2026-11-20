@@ -3,3 +3,4 @@
   command = "echo no-build"
 [functions]
   directory = "netlify/functions"
+  included_files = ["netlify/functions/lib/**"]

@@ -1,1 +1,1 @@
-{ "name": "bookpro-booking-app", "private": true, "scripts": { "test": "node --test test/checkout.test.js" } }
+{ "name": "bookpro-booking-app", "private": true, "scripts": { "test": "node --test test/checkout.test.js test/stripe-webhook.test.js", "deliveries": "node scripts/deliveries.mjs" } }
