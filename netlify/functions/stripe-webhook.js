@@ -1,12 +1,14 @@
 // Stripe webhook -> license issuance (verify, record, queue). NEVER sends email or calls Stripe.
-// Wraps the vendored shared module (lib/license-webhook.mjs, ESM) via dynamic import.
+// Wraps the vendored shared modules (lib/*.mjs, ESM) via dynamic import. All store calls are ASYNC.
 //
-// STORAGE WARNING: Netlify function filesystems are ephemeral. The JsonStore is for tests/local only.
-// Production needs a persistent store object with read()/write() (see docs in MONETIZATION.md).
-// Until one is provided, this function REFUSES to process events (503, Stripe will retry) unless
-// ALLOW_EPHEMERAL_STORE=yes is set explicitly (then licenses may be silently lost).
-const os = require('node:os');
-const path = require('node:path');
+// STORAGE: production requires LICENSE_DATABASE_URL (Postgres; event claim + key issue + outbox are one
+// transaction). Without a usable store this function FAILS CLOSED with 503 (Stripe retries).
+// Dev only (NODE_ENV !== 'production', not a Netlify runtime): LICENSE_DB=<file> or LICENSE_DEV_STORE=memory.
+
+// Static reference so Netlify's bundler ships `pg` (loaded at runtime by lib/stores.mjs; see netlify.toml).
+// Never called here.
+const _shipPg = () => require('pg');
+void _shipPg;
 
 function audit(rec) { console.log(JSON.stringify({ ts: new Date().toISOString(), event: 'webhook', ...rec })); }
 
@@ -32,32 +34,47 @@ function header(event, name) {
   return undefined;
 }
 
+// Module-level cache of the store promise for the real process env (warm invocations reuse the pool).
+let storePromise = null;
+function getStore(env) {
+  const load = async () => (await import('./lib/store-config.mjs')).resolveStore(env);
+  if (env !== process.env) return load(); // injected env (tests): no caching
+  if (!storePromise) storePromise = load().catch((e) => { storePromise = null; throw e; }); // never cache a failure
+  return storePromise;
+}
+function resetStoreCache() { storePromise = null; }
+
 /**
- * opts.store: any object with read()/write(). Injected by tests or a production adapter.
+ * opts.store: any ASYNC transactional store (see lib/stores.mjs). Injected by tests; otherwise from env.
  * Returns a Netlify response.
  */
 async function handle(event, env = process.env, opts = {}) {
   const json = (statusCode, body) => ({ statusCode, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   if (event.httpMethod !== 'POST') return json(405, { error: 'POST only' });
-  const { createLicenseWebhook, JsonStore } = await import('./lib/license-webhook.mjs');
+  const { createAsyncLicenseWebhook } = await import('./lib/async.mjs');
 
   let store = opts.store;
   if (!store) {
-    if (env.ALLOW_EPHEMERAL_STORE !== 'yes') {
-      audit({ type: 'webhook_refused', reason: 'no_persistent_store' });
+    try { store = await getStore(env); }
+    catch (e) {
+      audit({ type: 'webhook_refused', reason: 'no_persistent_store', detail: String(e.message).slice(0, 200) });
       return json(503, { error: 'no persistent store configured' });
     }
-    store = new JsonStore(env.LICENSE_DB || path.join(os.tmpdir(), 'bookpro-licenses.json'));
   }
-  const lw = createLicenseWebhook({
+  const lw = createAsyncLicenseWebhook({
     secret: env.STRIPE_WEBHOOK_SECRET,
     priceTiers: priceTiersFromEnv(env),
     store,
     audit,
     now: opts.now,
   });
-  const out = lw.handle(rawBodyOf(event), header(event, 'stripe-signature'));
-  return json(out.status, out.body);
+  try {
+    const out = await lw.handle(rawBodyOf(event), header(event, 'stripe-signature'));
+    return json(out.status, out.body);
+  } catch (e) {
+    audit({ type: 'webhook_error', detail: String(e.message).slice(0, 200) });
+    return json(500, { error: 'processing failed' }); // transaction rolled back; Stripe will retry
+  }
 }
 
-module.exports = { handler: (e) => handle(e), handle, priceTiersFromEnv, rawBodyOf };
+module.exports = { handler: (e) => handle(e), handle, priceTiersFromEnv, rawBodyOf, resetStoreCache };

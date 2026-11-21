@@ -2,5 +2,7 @@
   publish = "."
   command = "echo no-build"
 [functions]
+  # pg is loaded at runtime by lib/stores.mjs (outside the esbuild graph), so ship it as an external module.
+  external_node_modules = ["pg"]
   directory = "netlify/functions"
   included_files = ["netlify/functions/lib/**"]
